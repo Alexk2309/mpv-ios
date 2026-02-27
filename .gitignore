@@ -1,0 +1,31 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode user-specific data (do NOT ignore the .xcodeproj itself)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+
+# Xcode workspace/project user data
+**/*.xcodeproj/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+
+# Xcode Previews
+PreviewAssets.xcassets/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Instruments
+*.trace
+
+# Crashlytics / Firebase
+Pods/
+Carthage/
