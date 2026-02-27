@@ -8,14 +8,30 @@
 import SwiftUI
 
 struct ContentView: View {
+    private let testURL = URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/h265.mp4")!
+
+    @State private var isPlayerPresented = false
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            Button {
+                isPlayerPresented = true
+            } label: {
+                VStack(spacing: 12) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 72))
+                        .foregroundStyle(.white)
+                    Text("Play Test Video")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                }
+            }
         }
-        .padding()
+        .fullScreenCover(isPresented: $isPlayerPresented) {
+            iOSPlayerScreen(url: testURL)
+        }
     }
 }
 

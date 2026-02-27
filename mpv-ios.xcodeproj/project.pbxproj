@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		492F5ED02F51BCF000624AB7 /* MPVKit-GPL in Frameworks */ = {isa = PBXBuildFile; productRef = 492F5ECF2F51BCF000624AB7 /* MPVKit-GPL */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		493CC6B62F51ABBD0024C28C /* mpv-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "mpv-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -16,6 +20,11 @@
 			path = "mpv-ios";
 			sourceTree = "<group>";
 		};
+		AA000001AAAAAAAAAAAAAA01 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -23,6 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				492F5ED02F51BCF000624AB7 /* MPVKit-GPL in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +43,7 @@
 			isa = PBXGroup;
 			children = (
 				493CC6B82F51ABBD0024C28C /* mpv-ios */,
+				AA000001AAAAAAAAAAAAAA01 /* Shared */,
 				493CC6B72F51ABBD0024C28C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -62,9 +73,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				493CC6B82F51ABBD0024C28C /* mpv-ios */,
+				AA000001AAAAAAAAAAAAAA01 /* Shared */,
 			);
 			name = "mpv-ios";
 			packageProductDependencies = (
+				492F5ECF2F51BCF000624AB7 /* MPVKit-GPL */,
 			);
 			productName = "mpv-ios";
 			productReference = 493CC6B62F51ABBD0024C28C /* mpv-ios.app */;
@@ -94,6 +107,9 @@
 			);
 			mainGroup = 493CC6AD2F51ABBD0024C28C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				492F5ECE2F51BCF000624AB7 /* XCRemoteSwiftPackageReference "MPVKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 493CC6B72F51ABBD0024C28C /* Products */;
 			projectDirPath = "";
@@ -254,15 +270,17 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MPV;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphoneos*]" = (audio, );
+				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphonesimulator*]" = (audio, );
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_CFBundleDisplayName = MPV;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -299,15 +317,17 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MPV;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphoneos*]" = (audio, );
+				"INFOPLIST_KEY_UIBackgroundModes[sdk=iphonesimulator*]" = (audio, );
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_CFBundleDisplayName = MPV;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -353,6 +373,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		492F5ECE2F51BCF000624AB7 /* XCRemoteSwiftPackageReference "MPVKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/streamyfin/MPVKit";
+			requirement = {
+				branch = "0.40.0-av";
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		492F5ECF2F51BCF000624AB7 /* MPVKit-GPL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492F5ECE2F51BCF000624AB7 /* XCRemoteSwiftPackageReference "MPVKit" */;
+			productName = "MPVKit-GPL";
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 493CC6AE2F51ABBD0024C28C /* Project object */;
 }
