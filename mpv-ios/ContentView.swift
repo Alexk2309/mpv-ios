@@ -8,30 +8,41 @@
 import SwiftUI
 
 struct ContentView: View {
-    private let testURL = URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/h265.mp4")!
-
-    @State private var isPlayerPresented = false
-
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            Button {
-                isPlayerPresented = true
-            } label: {
-                VStack(spacing: 12) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 72))
-                        .foregroundStyle(.white)
-                    Text("Play Test Video")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+#if compiler(>=6.0)
+        if #available(iOS 26.0, *) {
+            TabView {
+                Tab("Home", systemImage: "house.fill") {
+                    HomeView()
+                }
+                Tab("Settings", systemImage: "gear") {
+                    SettingsView()
                 }
             }
+            .tabBarMinimizeBehavior(.onScrollDown)
+            .accentColor(Color("AccentColor"))
+        } else {
+            olderTabView
         }
-        .fullScreenCover(isPresented: $isPlayerPresented) {
-            iOSPlayerScreen(url: testURL)
+#else
+        olderTabView
+#endif
+    }
+
+    private var olderTabView: some View {
+        TabView {
+            HomeView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Home")
+                }
+            SettingsView()
+                .tabItem {
+                    Image(systemName: "gear")
+                    Text("Settings")
+                }
         }
+        .accentColor(Color("AccentColor"))
     }
 }
 

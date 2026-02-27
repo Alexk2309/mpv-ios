@@ -52,21 +52,6 @@ final class MPVLayerRenderer {
     private var _isReadyToSeek: Bool = false
     private var _isSeeking: Bool = false
 
-    // Progress update throttling - CRITICAL for performance!
-    // DO NOT REMOVE THIS THROTTLE - it is essential for battery life and CPU efficiency.
-    //
-    // Without throttling, time-pos fires every video frame (24+ times/sec at 24fps).
-    // Each update crosses the React Native JS bridge, which is expensive on mobile.
-    // Even if the JS side does nothing, 24+ bridge calls/sec wastes CPU and battery.
-    //
-    // Throttling to 1 update/sec during normal playback is sufficient for:
-    // - Progress bar updates (users can't perceive 1-second granularity)
-    // - Playback position tracking
-    // - Any JS-side logic that needs current position
-    //
-    // During seeking, we bypass the throttle for responsive scrubbing.
-    // This optimization reduced CPU usage by ~50% for downloaded file playback.
-    private var lastProgressUpdateTime: CFAbsoluteTime = 0
     
     // Thread-safe accessors
     private var cachedDuration: Double {
@@ -501,15 +486,9 @@ final class MPVLayerRenderer {
             let status = getProperty(handle: handle, name: name, format: MPV_FORMAT_DOUBLE, value: &value)
             if status >= 0 {
                 cachedPosition = value
-                // Always update immediately when seeking, otherwise throttle to once per second
-                let now = CFAbsoluteTimeGetCurrent()
-                let shouldUpdate = isSeeking || (now - lastProgressUpdateTime >= 1.0)
-                if shouldUpdate {
-                    lastProgressUpdateTime = now
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self else { return }
-                        self.delegate?.renderer(self, didUpdatePosition: self.cachedPosition, duration: self.cachedDuration, cacheSeconds: self.cachedCacheSeconds)
-                    }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.delegate?.renderer(self, didUpdatePosition: self.cachedPosition, duration: self.cachedDuration, cacheSeconds: self.cachedCacheSeconds)
                 }
             }
         case "demuxer-cache-duration":
@@ -644,6 +623,12 @@ final class MPVLayerRenderer {
         playbackSpeed = speed
         setProperty(name: "speed", value: String(speed))
     }
+
+    /// Set playback volume. 0.0 = mute, 1.0 = 100% (default), values > 1.0 amplify.
+    func setVolume(_ volume: Double) {
+        let clamped = max(0, min(2, volume))
+        setProperty(name: "volume", value: String(Int(clamped * 100)))
+    }
     
     func getSpeed() -> Double {
         guard let handle = mpv else { return 1.0 }
@@ -749,7 +734,30 @@ final class MPVLayerRenderer {
     func setSubtitleFontSize(_ size: Int) {
         setProperty(name: "sub-font-size", value: String(size))
     }
-    
+
+    // MARK: - Decoder / Network Settings
+
+    /// Toggle hardware (VideoToolbox) decoding at runtime.
+    func setHardwareDecoding(_ enabled: Bool) {
+        setProperty(name: "hwdec", value: enabled ? "videotoolbox" : "no")
+    }
+
+    /// Enable or disable deinterlacing.
+    func setDeinterlace(_ enabled: Bool) {
+        setProperty(name: "deinterlace", value: enabled ? "yes" : "no")
+    }
+
+    /// Set the demuxer read-ahead cache size in megabytes.
+    func setCacheSize(megabytes: Int) {
+        setProperty(name: "demuxer-max-bytes", value: "\(megabytes)MiB")
+    }
+
+    /// Override the HTTP User-Agent sent with network requests.
+    func setUserAgent(_ agent: String) {
+        guard !agent.isEmpty else { return }
+        setProperty(name: "user-agent", value: agent)
+    }
+
     // MARK: - Audio Track Controls
     
     func getAudioTracks() -> [[String: Any]] {
