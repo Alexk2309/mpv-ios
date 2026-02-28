@@ -10,11 +10,16 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct HomeView: View {
-    @State private var isPlayerPresented = false
+    // Tiny Identifiable wrapper so we can drive fullScreenCover(item:) with a URL
+    private struct PlayerItem: Identifiable {
+        let url: URL
+        var id: String { url.absoluteString }
+    }
+
     @State private var isURLEntryPresented = false
     @State private var isFilePickerPresented = false
     @State private var urlInput = ""
-    @State private var selectedURL: URL?
+    @State private var playerURL: PlayerItem?
     @State private var orientationBeforePlayer: UIInterfaceOrientationMask = .portrait
 
     var body: some View {
@@ -50,7 +55,6 @@ struct HomeView: View {
                         symbol: "folder.fill",
                         label: "Open Local File"
                     ) {
-                        selectedURL = nil
                         isFilePickerPresented = true
                     }
 
@@ -69,11 +73,11 @@ struct HomeView: View {
         // URL entry sheet
         .sheet(isPresented: $isURLEntryPresented) {
             URLEntrySheet(url: $urlInput) { url in
-                selectedURL = url
                 isURLEntryPresented = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                // Small delay lets the sheet fully dismiss before cover presents
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     snapshotOrientation()
-                    isPlayerPresented = true
+                    playerURL = PlayerItem(url: url)
                 }
             }
             .presentationDetents([.height(180)])
@@ -87,22 +91,20 @@ struct HomeView: View {
         ) { result in
             if case .success(let urls) = result, let url = urls.first {
                 _ = url.startAccessingSecurityScopedResource()
-                selectedURL = url
                 snapshotOrientation()
-                isPlayerPresented = true
+                playerURL = PlayerItem(url: url)
             }
         }
         // Player
-        .fullScreenCover(isPresented: $isPlayerPresented, onDismiss: {
+        .fullScreenCover(item: $playerURL, onDismiss: {
+            playerURL = nil
             guard let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
                 .first(where: { $0.activationState == .foregroundActive })
             else { return }
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: orientationBeforePlayer)) { _ in }
-        }) {
-            if let url = selectedURL {
-                iOSPlayerScreen(url: url)
-            }
+        }) { item in
+            iOSPlayerScreen(url: item.url)
         }
     }
 
@@ -162,6 +164,7 @@ private struct HomeActionButton: View {
 private struct URLEntrySheet: View {
     @Binding var url: String
     let onConfirm: (URL) -> Void
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -181,11 +184,21 @@ private struct URLEntrySheet: View {
                     .keyboardType(.URL)
                     .foregroundStyle(.white)
                     .submitLabel(.go)
+                    .focused($isFocused)
                     .onSubmit { tryConfirm() }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background {
+                if #available(iOS 26.0, *) {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.clear)
+                        .glassEffect(.regular)
+                } else {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                }
+            }
             .padding(.horizontal, 20)
 
             Button(action: tryConfirm) {
@@ -199,7 +212,14 @@ private struct URLEntrySheet: View {
             .padding(.horizontal, 20)
             .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .background(Color(white: 0.08).ignoresSafeArea())
+        .background {
+            if #available(iOS 26.0, *) {
+                Color.clear.ignoresSafeArea()
+            } else {
+                Color(white: 0.08).ignoresSafeArea()
+            }
+        }
+        .onAppear { isFocused = true }
     }
 
     private func tryConfirm() {

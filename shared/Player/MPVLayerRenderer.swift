@@ -605,7 +605,13 @@ final class MPVLayerRenderer {
         commandSync(handle, ["seek", String(clamped), "absolute"])
     }
 
-
+    /// Fast keyframe seek — use during live scrubbing; finish with seek(to:) for precision.
+    func seekFast(to seconds: Double) {
+        guard let handle = mpv else { return }
+        let clamped = max(0, seconds)
+        cachedPosition = clamped
+        commandSync(handle, ["seek", String(clamped), "absolute", "keyframes"])
+    }
 
     func seek(by seconds: Double) {
         guard let handle = mpv else { return }

@@ -11,6 +11,7 @@ final class PlayerControlsModel: ObservableObject {
     @Published var isPaused: Bool = true
     @Published var isVisible: Bool = false
     @Published var isLoading: Bool = true
+    @Published var isScrubbing: Bool = false
 
     @AppStorage("skipBackwardSeconds") var skipBack: Int = 10
     @AppStorage("skipForwardSeconds") var skipForward: Int = 10
@@ -76,7 +77,7 @@ private struct ControlsOverlay: View {
             }
 
             // Centre row — skip back / play-pause / skip forward
-            if !model.isLoading {
+            if !model.isLoading && !model.isScrubbing {
                 HStack(spacing: 56) {
                     GlassCircleButton(symbol: "gobackward.\(model.skipBack)", size: 60, pointSize: 24) { model.onSkipBack?() }
                     GlassCircleButton(
@@ -201,6 +202,7 @@ final class PlayerViewController: UIViewController {
         s.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
         s.setThumbImage(UIImage(), for: .normal)
         s.setThumbImage(UIImage(), for: .highlighted)
+        s.isUserInteractionEnabled = false   // driven by pan/tap gesture below
         s.value = 0
         return s
     }()
@@ -479,12 +481,11 @@ final class PlayerViewController: UIViewController {
         controls.onSkipBack = { [weak self] in self?.skipBackwardTapped() }
         controls.onSkipForward = { [weak self] in self?.skipForwardTapped() }
 
-        scrubber.addTarget(self, action: #selector(scrubberChanged), for: .valueChanged)
-        scrubber.addTarget(self, action: #selector(scrubberTouchBegan), for: .touchDown)
-        scrubber.addTarget(self, action: #selector(scrubberTouchEnded), for: [.touchUpInside, .touchUpOutside, .touchCancel])
-
-        let scrubberTap = UITapGestureRecognizer(target: self, action: #selector(scrubberTapped(_:)))
-        progressContainer.addGestureRecognizer(scrubberTap)
+        let scrubPan = UIPanGestureRecognizer(target: self, action: #selector(scrubberPanned(_:)))
+        scrubPan.maximumNumberOfTouches = 1
+        let scrubTap = UITapGestureRecognizer(target: self, action: #selector(scrubberTapped(_:)))
+        progressContainer.addGestureRecognizer(scrubPan)
+        progressContainer.addGestureRecognizer(scrubTap)
 
         setupMediaOptionsButtons()
 
@@ -656,32 +657,52 @@ final class PlayerViewController: UIViewController {
         }
     }
 
-    @objc private func scrubberTouchBegan() {
-        isSeeking = true
-        controlsHideWork?.cancel()
+    private var lastLiveScrubTime: TimeInterval = 0
+    private let liveScrubInterval: TimeInterval = 1.0 / 15  // ~15fps
+
+    /// Converts an x position inside progressContainer to a playback time.
+    private func scrubValue(forTouchX x: CGFloat) -> Float {
+        let track = scrubber.convert(scrubber.trackRect(forBounds: scrubber.bounds), to: progressContainer)
+        guard track.width > 0 else { return scrubber.value }
+        let ratio = Float(max(0, min(1, (x - track.minX) / track.width)))
+        return scrubber.minimumValue + ratio * (scrubber.maximumValue - scrubber.minimumValue)
     }
 
-    @objc private func scrubberTapped(_ gesture: UITapGestureRecognizer) {
-        // Convert tap location into scrubber's coordinate space to avoid
-        // attaching a gesture directly to UISlider (causes accessibility warnings)
-        let tapInScrubber = gesture.location(in: scrubber)
-        let trackRect = scrubber.trackRect(forBounds: scrubber.bounds)
-        guard trackRect.width > 0 else { return }
-        let ratio = Float(max(0, min(1, (tapInScrubber.x - trackRect.minX) / trackRect.width)))
-        let newValue = scrubber.minimumValue + ratio * (scrubber.maximumValue - scrubber.minimumValue)
-        scrubber.setValue(newValue, animated: false)
-        positionLabel.text = formatTime(Double(newValue))
-        renderer.seek(to: Double(newValue))
-        showControlsTemporarily()
+    @objc private func scrubberPanned(_ g: UIPanGestureRecognizer) {
+        let x = g.location(in: progressContainer).x
+        switch g.state {
+        case .began:
+            isSeeking = true
+            controls.isScrubbing = true
+            controlsHideWork?.cancel()
+            fallthrough
+        case .changed:
+            let v = scrubValue(forTouchX: x)
+            scrubber.value = v
+            positionLabel.text = formatTime(Double(v))
+            // Throttle live seeks to ~15fps to avoid flooding mpv
+            let now = Date().timeIntervalSinceReferenceDate
+            if now - lastLiveScrubTime >= liveScrubInterval {
+                lastLiveScrubTime = now
+                renderer.seekFast(to: Double(v))
+            }
+        case .ended, .cancelled:
+            let v = scrubValue(forTouchX: x)
+            scrubber.value = v
+            isSeeking = false
+            controls.isScrubbing = false
+            renderer.seek(to: Double(v))  // precise seek on release
+            showControlsTemporarily()
+        default:
+            break
+        }
     }
 
-    @objc private func scrubberChanged() {
-        positionLabel.text = formatTime(Double(scrubber.value))
-    }
-
-    @objc private func scrubberTouchEnded() {
-        isSeeking = false
-        renderer.seek(to: Double(scrubber.value))
+    @objc private func scrubberTapped(_ g: UITapGestureRecognizer) {
+        let v = scrubValue(forTouchX: g.location(in: progressContainer).x)
+        scrubber.value = v
+        positionLabel.text = formatTime(Double(v))
+        renderer.seek(to: Double(v))
         showControlsTemporarily()
     }
 
