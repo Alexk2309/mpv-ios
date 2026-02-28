@@ -55,6 +55,7 @@ struct PlaybackSettingsView: View {
     @AppStorage("defaultSpeed") private var defaultSpeed: Double = 1.0
     @AppStorage("resumePlayback") private var resumePlayback: Bool = true
     @AppStorage("rememberLastSubtitle") private var rememberLastSubtitle: Bool = true
+    @AppStorage("lockLandscape") private var lockLandscape: Bool = true
     @AppStorage("skipForwardSeconds") private var skipForward: Int = 10
     @AppStorage("skipBackwardSeconds") private var skipBackward: Int = 10
 
@@ -76,8 +77,11 @@ struct PlaybackSettingsView: View {
                 }
                 Toggle("Resume Where Left Off", isOn: $resumePlayback)
                 Toggle("Remember Last Subtitle", isOn: $rememberLastSubtitle)
+                Toggle("Lock to Landscape", isOn: $lockLandscape)
             } header: {
                 Text("General")
+            } footer: {
+                Text("Lock to Landscape forces the player to stay in landscape orientation.")
             }
 
             Section {

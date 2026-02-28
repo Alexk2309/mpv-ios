@@ -304,15 +304,13 @@ final class PlayerViewController: UIViewController {
 
     override var prefersStatusBarHidden: Bool { true }
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .landscape }
-    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation { .landscapeRight }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { PlayerOrientation.supported }
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation { PlayerOrientation.preferredPresentation }
     override var shouldAutorotate: Bool { true }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        view.window?.windowScene?.requestGeometryUpdate(
-            .iOS(interfaceOrientations: .landscape)
-        ) { _ in }
+        PlayerOrientation.applyToScene(view.window?.windowScene)
         setNeedsUpdateOfSupportedInterfaceOrientations()
     }
 
@@ -813,10 +811,7 @@ final class PlayerViewController: UIViewController {
             if let pip = self.pipController, pip.isPictureInPictureActive {
                 pip.stopPictureInPicture()
             }
-            // Re-request landscape — viewDidAppear won't fire again when resuming from background
-            self.view.window?.windowScene?.requestGeometryUpdate(
-                .iOS(interfaceOrientations: .landscape)
-            ) { _ in }
+            PlayerOrientation.applyToScene(self.view.window?.windowScene)
             self.setNeedsUpdateOfSupportedInterfaceOrientations()
         }
     }
