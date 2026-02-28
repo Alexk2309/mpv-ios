@@ -164,6 +164,7 @@ private struct HomeActionButton: View {
 private struct URLEntrySheet: View {
     @Binding var url: String
     let onConfirm: (URL) -> Void
+    @State private var canPaste: Bool = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -184,14 +185,20 @@ private struct URLEntrySheet: View {
                     .foregroundStyle(.white)
                     .submitLabel(.go)
                     .onSubmit { tryConfirm() }
-                if let clip = UIPasteboard.general.string, !clip.isEmpty {
+                if canPaste {
                     Button {
-                        url = clip
+                        // User-initiated: safe to read pasteboard
+                        if let u = UIPasteboard.general.url {
+                            url = u.absoluteString
+                        } else if let clip = UIPasteboard.general.string, !clip.isEmpty {
+                            url = clip
+                        }
                     } label: {
                         Image(systemName: "doc.on.clipboard")
                             .font(.system(size: 15))
                             .foregroundStyle(Color("AccentColor"))
                     }
+                    .accessibilityLabel("Paste from Clipboard")
                 }
             }
             .padding(.horizontal, 16)
@@ -207,6 +214,13 @@ private struct URLEntrySheet: View {
                 }
             }
             .padding(.horizontal, 20)
+            .onAppear {
+                // Check capability without triggering paste permission
+                canPaste = UIPasteboard.general.hasURLs || UIPasteboard.general.hasStrings
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) { _ in
+                canPaste = UIPasteboard.general.hasURLs || UIPasteboard.general.hasStrings
+            }
 
             Button(action: tryConfirm) {
                 Text("Play")

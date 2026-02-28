@@ -98,6 +98,7 @@ struct GesturesSettingsView: View {
             }
         }
         .navigationTitle("Gestures")
+        .tint(Color("AccentColor"))
     }
 }
 
@@ -105,9 +106,8 @@ struct GesturesSettingsView: View {
 
 struct PlaybackSettingsView: View {
     @AppStorage("defaultSpeed") private var defaultSpeed: Double = 1.0
-    @AppStorage("resumePlayback") private var resumePlayback: Bool = true
-    @AppStorage("rememberLastSubtitle") private var rememberLastSubtitle: Bool = true
     @AppStorage("lockLandscape") private var lockLandscape: Bool = true
+    @AppStorage("showFileTitle") private var showFileTitle: Bool = true
     @AppStorage("skipForwardSeconds") private var skipForward: Int = 10
     @AppStorage("skipBackwardSeconds") private var skipBackward: Int = 10
 
@@ -127,9 +127,8 @@ struct PlaybackSettingsView: View {
                     }
                     .pickerStyle(.menu)
                 }
-                Toggle("Resume Where Left Off", isOn: $resumePlayback)
-                Toggle("Remember Last Subtitle", isOn: $rememberLastSubtitle)
                 Toggle("Lock to Landscape", isOn: $lockLandscape)
+                Toggle("Show File Name", isOn: $showFileTitle)
             } header: {
                 Text("General")
             } footer: {
@@ -164,6 +163,7 @@ struct PlaybackSettingsView: View {
             }
         }
         .navigationTitle("Playback")
+        .tint(Color("AccentColor"))
     }
 }
 
@@ -183,6 +183,7 @@ struct DecoderSettingsView: View {
             }
         }
         .navigationTitle("Decoder")
+        .tint(Color("AccentColor"))
     }
 }
 

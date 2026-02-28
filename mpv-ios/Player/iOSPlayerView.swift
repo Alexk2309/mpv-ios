@@ -289,6 +289,22 @@ final class PlayerViewController: UIViewController {
         return l
     }()
 
+    private let fileTitleLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = .white
+        l.font = .systemFont(ofSize: 20, weight: .semibold)
+        l.numberOfLines = 1
+        l.lineBreakMode = .byTruncatingTail
+        l.alpha = 0
+        return l
+    }()
+
+    private var showFileTitleEnabled: Bool {
+        let ud = UserDefaults.standard
+        return (ud.object(forKey: "showFileTitle") as? Bool) ?? true
+    }
+
     private let durationLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -336,7 +352,7 @@ final class PlayerViewController: UIViewController {
         b.translatesAutoresizingMaskIntoConstraints = false
         b.tintColor = .white
         let cfg = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
-        b.setImage(UIImage(systemName: "speaker.wave.2", withConfiguration: cfg), for: .normal)
+        b.setImage(UIImage(systemName: "waveform", withConfiguration: cfg), for: .normal)
         b.showsMenuAsPrimaryAction = true
         return b
     }()
@@ -546,6 +562,7 @@ final class PlayerViewController: UIViewController {
         videoContainer.addSubview(progressContainer)
         videoContainer.addSubview(mediaOptionsContainer)
         videoContainer.addSubview(brightnessIndicator)
+        videoContainer.addSubview(fileTitleLabel)
         videoContainer.addSubview(volumePill)
         let brightStack = UIStackView(arrangedSubviews: [brightnessIconView, brightnessIndicatorLabel])
         brightStack.translatesAutoresizingMaskIntoConstraints = false
@@ -624,6 +641,11 @@ final class PlayerViewController: UIViewController {
             positionLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor, constant: 14),
             positionLabel.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor),
 
+            // File title — above progress bar, left-aligned
+            fileTitleLabel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
+            fileTitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
+            fileTitleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -6),
+
             durationLabel.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor, constant: -14),
             durationLabel.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor),
 
@@ -660,8 +682,8 @@ final class PlayerViewController: UIViewController {
             brightnessIconView.heightAnchor.constraint(equalToConstant: 16),
             brightnessIndicatorLabel.widthAnchor.constraint(equalToConstant: 44),
 
-            // Volume pill — top-right, aligns with top bar paddings
-            volumePill.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            // Volume pill — top-right, align trailing with media options pill (-12) to form a clean vertical stack
+            volumePill.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
             volumePill.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             volumePill.heightAnchor.constraint(equalToConstant: 44),
             volumePill.widthAnchor.constraint(equalToConstant: 220),
@@ -681,6 +703,7 @@ final class PlayerViewController: UIViewController {
         grad.locations = [0, 0.25, 0.65, 1]
         controlsOverlayView.layer.insertSublayer(grad, at: 0)
         controlsOverlayView.isUserInteractionEnabled = false
+        NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsChanged), name: UserDefaults.didChangeNotification, object: nil)
     }
 
     // MARK: Actions
@@ -705,6 +728,10 @@ final class PlayerViewController: UIViewController {
         let tap = UITapGestureRecognizer(target: self, action: #selector(containerTapped))
         tap.delegate = self
         videoContainer.addGestureRecognizer(tap)
+
+        // Set file title from current URL and initial visibility
+        fileTitleLabel.text = displayName(for: initialURL)
+        fileTitleLabel.alpha = showFileTitleEnabled ? 1 : 0
     }
 
     // Volume gestures are encapsulated in VolumePillView
@@ -1051,6 +1078,7 @@ final class PlayerViewController: UIViewController {
             self.progressContainer.alpha = 1
             self.mediaOptionsContainer.alpha = 1
             self.volumePill.alpha = 1
+            self.fileTitleLabel.alpha = self.showFileTitleEnabled ? 1 : 0
         }
     }
 
@@ -1063,6 +1091,7 @@ final class PlayerViewController: UIViewController {
             self.progressContainer.alpha = 0
             self.mediaOptionsContainer.alpha = 0
             self.volumePill.alpha = 0
+            self.fileTitleLabel.alpha = 0
         }
     }
 
@@ -1089,6 +1118,22 @@ final class PlayerViewController: UIViewController {
         let t = Int(round(seconds))
         let s = t % 60; let m = (t / 60) % 60; let h = t / 3600
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
+    }
+
+    private func displayName(for url: URL) -> String {
+        if url.isFileURL, let name = (try? url.resourceValues(forKeys: [.localizedNameKey]))?.localizedName, !name.isEmpty {
+            return name
+        }
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let last = comps?.url?.lastPathComponent ?? url.lastPathComponent
+        let base = (last as NSString).deletingPathExtension
+        return (base.removingPercentEncoding ?? base).isEmpty ? url.absoluteString : (base.removingPercentEncoding ?? base)
+    }
+
+    @objc private func userDefaultsChanged() {
+        DispatchQueue.main.async {
+            self.fileTitleLabel.alpha = (self.controlsVisible && self.showFileTitleEnabled) ? 1 : 0
+        }
     }
 
     // MARK: Background / Foreground
@@ -1196,7 +1241,6 @@ extension PlayerViewController: MPVLayerRendererDelegate {
         }
     }
     func renderer(_ renderer: MPVLayerRenderer, didBecomeTracksReady: Bool) {
-        guard UserDefaults.standard.bool(forKey: "rememberLastSubtitle") else { return }
         let saved = UserDefaults.standard.string(forKey: "lastSubtitleLang")
         guard let saved else { return }
         if saved == "off" {
