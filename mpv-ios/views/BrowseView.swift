@@ -489,14 +489,14 @@ private struct ThumbnailView: View {
             return
         }
         Task.detached(priority: .utility) {
-            guard let thumbnail = generateThumbnail(for: url) else { return }
+            guard let thumbnail = await generateThumbnail(for: url) else { return }
             ThumbnailCache.shared.set(thumbnail, for: url)
             await MainActor.run { self.image = thumbnail }
         }
     }
 }
 
-private func generateThumbnail(for url: URL) -> UIImage? {
+private func generateThumbnail(for url: URL) async -> UIImage? {
     let type = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? nil
     let asset = AVAsset(url: url)
     let ext = url.pathExtension.lowercased()
@@ -529,7 +529,7 @@ private func generateThumbnail(for url: URL) -> UIImage? {
             }
         }
         // Fallback: Quick Look thumbnail generation
-        if let ql = quickLookThumbnail(for: url, size: CGSize(width: 800, height: 800)) {
+        if let ql = await quickLookThumbnail(for: url, size: CGSize(width: 800, height: 800)) {
             return ql
         }
     }
@@ -567,17 +567,17 @@ private func extractArtworkImage(from asset: AVAsset) -> UIImage? {
 
 // MARK: - Quick Look fallback
 
-private func quickLookThumbnail(for url: URL, size: CGSize) -> UIImage? {
+// Uses withCheckedContinuation so the Swift Concurrency cooperative thread is
+// suspended (not blocked) while waiting for the QLThumbnailGenerator callback,
+// avoiding the priority inversion that DispatchSemaphore.wait() would cause.
+private func quickLookThumbnail(for url: URL, size: CGSize) async -> UIImage? {
     let scale: CGFloat = 2.0
     let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
-    var image: UIImage?
-    let sema = DispatchSemaphore(value: 0)
-    QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
-        if let rep = rep { image = rep.uiImage }
-        sema.signal()
+    return await withCheckedContinuation { continuation in
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
+            continuation.resume(returning: rep?.uiImage)
+        }
     }
-    _ = sema.wait(timeout: .now() + 1.0)
-    return image
 }
 
 // MARK: - Media type helpers

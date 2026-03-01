@@ -1122,7 +1122,9 @@ final class PlayerViewController: UIViewController {
 
     private func showControls() {
         controlsVisible = true
-        controls.isVisible = true
+        // Defer to avoid mutating @Published inside a SwiftUI view-update pass
+        // (e.g. when called from viewDidLoad which runs inside makeUIViewController).
+        DispatchQueue.main.async { [weak self] in self?.controls.isVisible = true }
         volumeHUDHideWorkItem?.cancel()
         volumeHUDHideWorkItem = nil
         UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
@@ -1136,8 +1138,8 @@ final class PlayerViewController: UIViewController {
 
     private func hideControls() {
         controlsVisible = false
-
-        controls.isVisible = false
+        // Defer to avoid mutating @Published inside a SwiftUI view-update pass.
+        DispatchQueue.main.async { [weak self] in self?.controls.isVisible = false }
         UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
             self.controlsOverlayView.alpha = 0
             self.progressContainer.alpha = 0
