@@ -550,6 +550,9 @@ final class PlayerViewController: UIViewController {
         controlsAutoHideWorkItem?.cancel()
         volumeHUDHideWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+        MPVNowPlayingManager.shared.cleanupRemoteCommands()
+        MPVNowPlayingManager.shared.clear()
+        MPVNowPlayingManager.shared.deactivateAudioSession()
     }
 
     // MARK: Layout
@@ -738,6 +741,26 @@ final class PlayerViewController: UIViewController {
         // Set file title from current URL and initial visibility
         fileTitleLabel.text = displayName(for: initialURL)
         fileTitleLabel.alpha = showFileTitleEnabled ? 1 : 0
+
+        // Wire up Now Playing remote commands
+        MPVNowPlayingManager.shared.setupRemoteCommands(
+            playHandler:   { [weak self] in self?.renderer.play() },
+            pauseHandler:  { [weak self] in self?.renderer.pausePlayback() },
+            toggleHandler: { [weak self] in self?.playPauseTapped() },
+            seekHandler:   { [weak self] time in self?.renderer.seek(to: time) },
+            skipForward:   { [weak self] interval in
+                guard let self else { return }
+                self.renderer.seek(to: self.cachedPosition + interval)
+            },
+            skipBackward: { [weak self] interval in
+                guard let self else { return }
+                self.renderer.seek(to: max(0, self.cachedPosition - interval))
+            }
+        )
+        MPVNowPlayingManager.shared.setMetadata(
+            title: displayName(for: initialURL),
+            artist: nil, albumTitle: nil, artworkUrl: nil
+        )
     }
 
     // Volume gestures are encapsulated in VolumePillView
@@ -1227,11 +1250,15 @@ extension PlayerViewController: MPVLayerRendererDelegate {
             self.durationLabel.text = self.formatTime(duration)
             self.pipController?.setCurrentTimeFromSeconds(position, duration: duration)
             // Mini progress is handled in Browse via a SwiftUI component.
+            MPVNowPlayingManager.shared.updatePlayback(
+                position: position, duration: duration, isPlaying: !renderer.isPausedState)
         }
     }
 
     func renderer(_ renderer: MPVLayerRenderer, didChangePause isPaused: Bool) {
         updatePlayPauseButton(isPaused: isPaused)
+        MPVNowPlayingManager.shared.updatePlayback(
+            position: cachedPosition, duration: cachedDuration, isPlaying: !isPaused)
         DispatchQueue.main.async { [weak self] in
             self?.pipController?.setPlaybackRate(isPaused ? 0 : 1)
             self?.pipController?.updatePlaybackState()
@@ -1297,8 +1324,14 @@ extension PlayerViewController: MPVLayerRendererDelegate {
             renderer.setSubtitleTrack(trackId)
         }
     }
-    func renderer(_ renderer: MPVLayerRenderer, didSelectAudioOutput audioOutput: String) {}
-}
+
+    func renderer(_ renderer: MPVLayerRenderer, didSelectAudioOutput audioOutput: String) {
+        // MPV's AudioUnit init can displace our audio session registration.
+        // Re-activate here so iOS re-associates this app as the Now Playing source,
+        // then force an immediate Now Playing write regardless of the throttle.
+        MPVNowPlayingManager.shared.activateAudioSession()
+        MPVNowPlayingManager.shared.forceRefresh()
+    }}
 
 // MARK: - Subtitle horizontal shift helper
 

@@ -42,3 +42,9 @@ If you enjoy MPV, there are a few ways you can show your support:
 - ☕ **Buy me a coffee** - [buymeacoffee.com/alexk2309](https://buymeacoffee.com/alexk2309)
 
 Thank you, it genuinely means a lot! 🙏
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mpv-ios/mpv-ios&type=Date)](https://star-history.com/#mpv-ios/mpv-ios&Date)

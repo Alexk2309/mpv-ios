@@ -147,6 +147,11 @@ class MPVNowPlayingManager {
         self.isPlaying = isPlaying
         refresh()
     }
+
+    /// Force an immediate Now Playing write. Call after the audio session is re-established.
+    func forceRefresh() {
+        refresh()
+    }
     
     /// Clear everything
     func clear() {
@@ -159,30 +164,22 @@ class MPVNowPlayingManager {
         position = 0
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        print("[NowPlaying] Cleared")
     }
     
     // MARK: - Private
-    
-    /// Refresh Now Playing info if we have enough data
+
     private func refresh() {
-        guard duration > 0 else {
-            print("[NowPlaying] refresh skipped - duration is 0")
-            return
-        }
-        
         var info: [String: Any] = [
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
-        
+
         if let title { info[MPMediaItemPropertyTitle] = title }
         if let artist { info[MPMediaItemPropertyArtist] = artist }
         if let albumTitle { info[MPMediaItemPropertyAlbumTitle] = albumTitle }
         if let cachedArtwork { info[MPMediaItemPropertyArtwork] = cachedArtwork }
-        
+
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        print("[NowPlaying] ✅ Set info: title=\(title ?? "nil"), dur=\(Int(duration))s, pos=\(Int(position))s, rate=\(isPlaying ? 1.0 : 0.0)")
     }
 }
