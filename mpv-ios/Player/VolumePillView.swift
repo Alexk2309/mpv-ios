@@ -4,36 +4,14 @@ import AVFoundation
 
 final class VolumePillView: UIView {
     private let effectView: UIVisualEffectView
-
-    // MPVolumeView — kept solely so the system binds its internal slider to the
-    // hardware volume buttons. Embedding it inside UIVisualEffectView.contentView
-    // triggers "Tracking element window has a non-placeholder input view" spam,
-    // so we add it directly to self with a frame that sits just outside our bounds.
-    // self.clipsToBounds = true (set in setup()) clips it to nothing — no alpha
-    // tricks needed, and the system binding remains active.
-    private let hiddenVolumeView: MPVolumeView = {
-        let v = MPVolumeView(frame: CGRect(x: -2, y: -2, width: 1, height: 1))
+    private let volumeView: MPVolumeView = {
+        let v = MPVolumeView(frame: .zero)
+        v.translatesAutoresizingMaskIntoConstraints = false
         v.showsRouteButton = false
         v.showsVolumeSlider = true
-        v.isUserInteractionEnabled = false
+        v.semanticContentAttribute = .forceLeftToRight
         return v
     }()
-
-    // Plain UISlider used purely for visual display inside the pill.
-    private let displaySlider: UISlider = {
-        let s = UISlider()
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.minimumValue = 0
-        s.maximumValue = 1
-        s.semanticContentAttribute = .forceLeftToRight
-        s.minimumTrackTintColor = .white
-        s.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.35)
-        s.setThumbImage(UIImage(), for: .normal)
-        s.setThumbImage(UIImage(), for: .highlighted)
-        s.isUserInteractionEnabled = false  // gestures handled on self
-        return s
-    }()
-
     private let iconView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
@@ -42,6 +20,7 @@ final class VolumePillView: UIView {
         iv.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
         return iv
     }()
+    
 
     private var isAdjusting: Bool = false
     private var adjustEndWorkItem: DispatchWorkItem?
@@ -71,14 +50,6 @@ final class VolumePillView: UIView {
     }
 
     private func setup() {
-        // Clip self so the out-of-bounds MPVolumeView is invisible without any
-        // alpha tricks. The effect view manages its own corner clipping.
-        clipsToBounds = true
-
-        // Park the hidden MPVolumeView directly on self — NOT inside the effect
-        // view — to avoid triggering the input-tracking warning.
-        addSubview(hiddenVolumeView)
-
         effectView.translatesAutoresizingMaskIntoConstraints = false
         effectView.layer.cornerRadius = 22
         effectView.clipsToBounds = true
@@ -87,13 +58,8 @@ final class VolumePillView: UIView {
         effectView.layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
 
         addSubview(effectView)
-
-        let hstack = UIStackView(arrangedSubviews: [displaySlider, iconView])
-        hstack.translatesAutoresizingMaskIntoConstraints = false
-        hstack.axis = .horizontal
-        hstack.alignment = .center
-        hstack.spacing = 8
-        effectView.contentView.addSubview(hstack)
+        effectView.contentView.addSubview(volumeView)
+        effectView.contentView.addSubview(iconView)
 
         NSLayoutConstraint.activate([
             effectView.topAnchor.constraint(equalTo: topAnchor),
@@ -101,19 +67,28 @@ final class VolumePillView: UIView {
             effectView.trailingAnchor.constraint(equalTo: trailingAnchor),
             effectView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            hstack.leadingAnchor.constraint(equalTo: effectView.contentView.leadingAnchor, constant: 12),
-            hstack.trailingAnchor.constraint(equalTo: effectView.contentView.trailingAnchor, constant: -12),
-            hstack.centerYAnchor.constraint(equalTo: effectView.contentView.centerYAnchor),
+            // volumeView fills the horizontal space between the leading edge and the icon
+            volumeView.leadingAnchor.constraint(equalTo: effectView.contentView.leadingAnchor, constant: 12),
+            volumeView.trailingAnchor.constraint(equalTo: iconView.leadingAnchor, constant: -8),
+            volumeView.centerYAnchor.constraint(equalTo: effectView.contentView.centerYAnchor, constant: 1.5),
+            volumeView.heightAnchor.constraint(equalToConstant: 24),
 
+            // icon sits at trailing edge; nudge up by 3pt to optically align with the slider track
+            iconView.trailingAnchor.constraint(equalTo: effectView.contentView.trailingAnchor, constant: -12),
+            iconView.centerYAnchor.constraint(equalTo: volumeView.centerYAnchor, constant: -3),
             iconView.widthAnchor.constraint(equalToConstant: 22),
             iconView.heightAnchor.constraint(equalToConstant: 22),
-            displaySlider.heightAnchor.constraint(equalToConstant: 24),
         ])
 
-        // Forward system-volume changes from the hidden MPVolumeView's slider
-        // to the display slider.
-        if let s = systemVolumeSlider {
-            s.addTarget(self, action: #selector(systemSliderChanged(_:)), for: .valueChanged)
+        if let s = volumeSlider {
+            s.semanticContentAttribute = .forceLeftToRight
+            s.minimumTrackTintColor = .white
+            s.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.35)
+            s.setThumbImage(UIImage(), for: .normal)
+            s.setThumbImage(UIImage(), for: .highlighted)
+            s.contentVerticalAlignment = .center
+            s.isUserInteractionEnabled = false // we handle gestures on self
+            s.addTarget(self, action: #selector(sliderChanged(_:)), for: .valueChanged)
         }
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
@@ -122,7 +97,7 @@ final class VolumePillView: UIView {
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         addGestureRecognizer(tap)
-
+        // Initialize icon to current system volume
         syncToSystemVolume()
     }
 
@@ -131,33 +106,23 @@ final class VolumePillView: UIView {
         effectView.layer.cornerRadius = bounds.height / 2
     }
 
-    // MARK: - Internal helpers
-
-    private var systemVolumeSlider: UISlider? {
-        hiddenVolumeView.subviews.compactMap { $0 as? UISlider }.first
+    private var volumeSlider: UISlider? {
+        return volumeView.subviews.compactMap { $0 as? UISlider }.first
     }
 
-    /// Maps a touch x-position (in self's coordinate space) to a 0…1 volume value
-    /// using the display slider's track geometry.
     private func valueForTouchX(_ x: CGFloat) -> Float {
-        let trackRect = displaySlider.trackRect(forBounds: displaySlider.bounds)
-        let inSelf = displaySlider.convert(trackRect, to: self)
-        guard inSelf.width > 0 else { return displaySlider.value }
+        guard let s = volumeSlider else { return 0 }
+        let trackRect = s.trackRect(forBounds: s.bounds)
+        let inSelf = s.convert(trackRect, to: self)
+        guard inSelf.width > 0 else { return s.value }
         let ratio = max(0, min(1, Float((x - inSelf.minX) / inSelf.width)))
-        return ratio
-    }
-
-    private func applyVolume(_ v: Float) {
-        displaySlider.value = v
-        systemVolumeSlider?.value = v
-        systemVolumeSlider?.sendActions(for: .valueChanged)
-        updateIcon(for: v, animated: true)
+        return s.minimumValue + ratio * (s.maximumValue - s.minimumValue)
     }
 
     private func iconName(for volume: Float) -> String {
         if volume <= 0.001 { return "speaker.slash.fill" }
-        if volume <= 0.33  { return "speaker.wave.1.fill" }
-        if volume <= 0.66  { return "speaker.wave.2.fill" }
+        if volume <= 0.33 { return "speaker.wave.1.fill" }
+        if volume <= 0.66 { return "speaker.wave.2.fill" }
         return "speaker.wave.3.fill"
     }
 
@@ -166,17 +131,16 @@ final class VolumePillView: UIView {
         let cfg = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
         let img = UIImage(systemName: name, withConfiguration: cfg)
         if animated {
-            UIView.transition(with: iconView, duration: 0.18, options: .transitionCrossDissolve) {
+            UIView.transition(with: iconView, duration: 0.18, options: .transitionCrossDissolve, animations: {
                 self.iconView.image = img
-            }
+            }, completion: nil)
         } else {
             iconView.image = img
         }
     }
 
-    // MARK: - Gesture handlers
-
     @objc private func handlePan(_ g: UIPanGestureRecognizer) {
+        guard let s = volumeSlider else { return }
         let x = g.location(in: self).x
         switch g.state {
         case .began:
@@ -184,39 +148,47 @@ final class VolumePillView: UIView {
             isAdjusting = true
             fallthrough
         case .changed:
-            applyVolume(valueForTouchX(x))
+            let v = valueForTouchX(x)
+            s.value = v
+            s.sendActions(for: .valueChanged)
+            updateIcon(for: v, animated: true)
         case .ended, .cancelled:
-            applyVolume(valueForTouchX(x))
-            scheduleAdjustEnd()
+            let v = valueForTouchX(x)
+            s.value = v
+            s.sendActions(for: .valueChanged)
+            updateIcon(for: v, animated: true)
+            adjustEndWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.isAdjusting = false }
+            adjustEndWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
         default:
             break
         }
     }
 
     @objc private func handleTap(_ g: UITapGestureRecognizer) {
-        applyVolume(valueForTouchX(g.location(in: self).x))
+        guard let s = volumeSlider else { return }
+        let x = g.location(in: self).x
+        let v = valueForTouchX(x)
+        s.value = v
+        s.sendActions(for: .valueChanged)
+        updateIcon(for: v, animated: true)
+        // brief cooldown to ignore external syncs after tap
         isAdjusting = true
-        scheduleAdjustEnd()
-    }
-
-    private func scheduleAdjustEnd() {
         adjustEndWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.isAdjusting = false }
         adjustEndWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
     }
 
-    // Called when the hardware volume buttons change the system slider value.
-    @objc private func systemSliderChanged(_ sender: UISlider) {
-        guard !isAdjusting else { return }
-        displaySlider.value = sender.value
+    @objc private func sliderChanged(_ sender: UISlider) {
         updateIcon(for: sender.value, animated: true)
     }
 
     func syncToSystemVolume() {
-        guard !isAdjusting else { return }
+        guard !isAdjusting, let s = volumeSlider else { return }
         let v = AVAudioSession.sharedInstance().outputVolume
-        displaySlider.value = v
-        updateIcon(for: v, animated: false)
+        s.value = v
+        updateIcon(for: v, animated: true)
     }
 }

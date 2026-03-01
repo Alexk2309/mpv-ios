@@ -435,6 +435,7 @@ final class PlayerViewController: UIViewController {
     private let hiddenVolumeView: MPVolumeView = {
         let v = MPVolumeView(frame: .zero)
         v.alpha = 0.01 // keep in hierarchy to suppress system HUD
+        v.clipsToBounds = true // prevent any subview (route button, thumb) from overflowing the 1×1 frame
         v.isUserInteractionEnabled = false
         v.showsRouteButton = false
         v.showsVolumeSlider = true
